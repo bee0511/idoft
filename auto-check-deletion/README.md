@@ -1,18 +1,50 @@
 ## checkCommitForDeletion
 
-If you find a commit that has `Deleted` a flaky test, you can use this script to verify your findings.
+`check_deletion.py` inspects commits referenced in `pr-data.csv` and reports how
+individual test cases move or disappear across each commit.
+
+### Requirements
+
+- Python 3.8 or newer.
+- A local clone of the repository that contains the commit you want to audit.
+- Access to the `pr-data.csv` file shipped with this repository (or another
+  dataset in the same format).
 
 ### Usage
 
-1. Some filters need to be specified to `filter-tests.sh` in order for it to filter the contents of `pr-data.csv`. 
+```bash
+# Run from the repository root
+./auto-check-deletion/check_deletion.py \
+    --pr-data pr-data.csv \
+    --repo /path/to/shardingsphere-elasticjob \
+    --project https://github.com/apache/shardingsphere-elasticjob \
+    --status Deleted \
+    --limit 5
+```
 
-2. The script is run like this: `./filter-tests.sh arg1 arg2 arg3 .... argN`. Example usage: `./filter-tests.sh Deleted RocksDbPartition`. In this command, the script will output a file that is `Deleted` and contains `RocksDbPartition` in its test name. `filtered_tests.txt` is generated as an output which contains the test name and the commit link.
+Key options:
 
-3. Any number of arguments can be provided to this script. They need to be space separated.
+- `--project`, `--status`, `--category`, `--module`, and `--test-pattern` allow
+  you to narrow the dataset by substring (case-insensitive). You may pass the
+  same option multiple times to match several patterns.
+- `--limit` restricts the number of matching rows that will be analysed.
+- `--output` writes the formatted report to a file in addition to standard
+  output.
 
-4. Copy the script `check-deletion.sh` and `filtered_tests.txt` to the directory of the project.
+### Output
 
-5. Run the script with `./check-deletion.sh`.
+For every matching entry the script prints the associated project, commit, and
+fully-qualified test name. Each parent of the commit is inspected individually
+so merges are handled explicitly. For every parent the tool reports:
 
-The output of this execution will show whether a test method or class has been deleted in that commit.
-It will also be stored in a file `check-deletion-output.txt` in the directory where you run the script.
+- The path of the test file before and after the commit (following renames
+  automatically).
+- The git status of the file within the commit (modified, renamed, deleted,
+  etc.).
+- Whether the test method exists before and after the change.
+- A textual summary that highlights whether the method was removed because the
+  file vanished or because the method body was deleted.
+
+The rename chain is displayed explicitly, for example
+`module/src/test/java/.../MyTest.java -> module/src/test/java/.../MyTest.java -> <deleted>`
+so you can follow when a file moves and where it ultimately disappears.
